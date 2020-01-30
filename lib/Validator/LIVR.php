@@ -149,8 +149,17 @@ class LIVR
             if (count($validators) == 0) {
                 continue;
             }
-
-            $value = isset($data[$fieldName]) ? $data[$fieldName] : null;
+            if ($_POST['template'] === "wallpaperV3") {
+                if (isset($data[$fieldName])) {
+                    $value = $data[$fieldName];
+                } elseif (!isset($data[$fieldName]) && isset($data[key($data)])) {
+                    $value = $data[key($data)];
+                } else {
+                    $value = null;
+                }
+            } else {
+                $value = isset($data[$fieldName]) ? $data[$fieldName] : null;
+            }
 
             $isOk = true;
             $fieldResult;
@@ -158,23 +167,38 @@ class LIVR
             foreach ($validators as $vCb) {
                 $fieldResult = array_key_exists($fieldName, $result) ? $result[$fieldName] : $value;
 
-                $errCode = $vCb(
-                    ( array_key_exists($fieldName, $result) ? $result[$fieldName] : $value ),
-                    $data,
-                    $fieldResult
-                );
+                $errCode = $vCb(( array_key_exists($fieldName, $result) ? $result[$fieldName] : $value ), $data, $fieldResult);
+                if ($errCode == "WRONG_FILE" && strpos($value, 'data:image/') !== false) {
+                    $errCode = null;
+                }
 
-                if ($errCode) {
-                    $errors[$fieldName] = $errCode;
-                    $isOk = false;
+                if ($_POST['template'] === "wallpaperV3") {
+                    if ($errCode) {
+                        $errors[$fieldName] = $errCode;
+                        $isOk = false;
 
-                    break;
-                } elseif ($fieldResult !== null) {
-                    $result[$fieldName] = $fieldResult;
-                } elseif (array_key_exists($fieldName, $data)) {
-                    $result[$fieldName] = $value;
+                        break;
+                    } elseif ($fieldResult !== null) {
+                        if (isset($data[$fieldName])) {
+                            $result[$fieldName] = $fieldResult;
+                        } else {
+                            $result[key($data)] = $fieldResult;
+                        }
+                    } elseif (array_key_exists($fieldName, $data)) {
+                        $result[$fieldName] = $value;
+                    }
+                } else {
+                    if ($errCode) {
+                        $errors[$fieldName] = $errCode;
+                        $isOk = false;
+
+                        break;
+                    } elseif (array_key_exists($fieldName, $data)) {
+                        $result[$fieldName] = $fieldResult;
+                    }
                 }
             }
+
         }
 
         if (count($errors) > 0) {
